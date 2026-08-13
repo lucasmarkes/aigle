@@ -131,8 +131,9 @@ struct MainView: View {
 
     // MARK: - Toolbar
 
-    /// Sort and import travel together as view actions; the inspector toggle sits
-    /// on its own at the trailing edge, where macOS puts panel toggles.
+    /// Sort and import are view actions and sit together; the inspector toggle is
+    /// a panel control, so a spacer holds it apart at the trailing edge, where
+    /// macOS puts panel toggles.
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup {
@@ -150,6 +151,11 @@ struct MainView: View {
             }
             .help("Import files… (⌘I)")
         }
+
+        // Without the spacer the toggle joins the view-actions capsule, which
+        // reads as "a third thing you do to the grid" rather than as the
+        // panel control it is.
+        ToolbarSpacer(.fixed)
 
         ToolbarItem(placement: .primaryAction) {
             Button {

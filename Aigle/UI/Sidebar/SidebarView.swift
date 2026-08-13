@@ -75,9 +75,13 @@ struct SidebarView: View {
             }
 
             if !controller.allTags.isEmpty {
+                // Tags carry counts like every other row: a section that leaves
+                // the count column blank makes the sidebar look unfinished, and
+                // "how much is in here" is the same question in every section.
+                let counts = controller.tagCounts
                 Section("Tags") {
                     ForEach(controller.allTags.prefix(40), id: \.self) { tag in
-                        SidebarRow(title: tag, symbol: "tag", count: 0)
+                        SidebarRow(title: tag, symbol: "tag", count: counts[tag] ?? 0)
                             .tag(SidebarSelection.tag(tag))
                     }
                 }

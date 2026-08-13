@@ -305,6 +305,18 @@ public final class LibraryController {
 
     public var liveItems: [Item] { (snapshot?.items ?? []).filter { !$0.isDeleted } }
 
+    /// How many items carry each tag, in one pass.
+    ///
+    /// The sidebar needs every tag's count at once to draw its count column;
+    /// asking `items(for: .tag(_:))` per row is a full filter pass per tag.
+    public var tagCounts: [String: Int] {
+        var counts: [String: Int] = [:]
+        for item in liveItems {
+            for tag in item.tags { counts[tag, default: 0] += 1 }
+        }
+        return counts
+    }
+
     public func items(for selection: SidebarSelection) -> [Item] {
         switch selection {
         case .smart(.all):

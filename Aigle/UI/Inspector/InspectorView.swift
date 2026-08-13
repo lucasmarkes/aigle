@@ -96,14 +96,23 @@ struct InspectorView: View {
             SelectionStack(items: controller.selectedItems.prefix(3).map { $0 })
             Text("\(controller.selectedItemIDs.count) items selected")
                 .font(.headline)
+            // The frame goes on each label, not on the stack: on the stack it
+            // only widens the container and leaves two buttons sized to their
+            // own text, which is what made them ragged.
             VStack(spacing: Metrics.s) {
-                Button("Like All") { controller.toggleLike(ids: controller.selectedItemIDs) }
-                Button("Move to Trash", role: .destructive) {
+                Button {
+                    controller.toggleLike(ids: controller.selectedItemIDs)
+                } label: {
+                    Text("Like All").frame(maxWidth: .infinity)
+                }
+                Button(role: .destructive) {
                     controller.moveToTrash(ids: controller.selectedItemIDs)
+                } label: {
+                    Text("Move to Trash").frame(maxWidth: .infinity)
                 }
             }
             .buttonStyle(.bordered)
-            .frame(maxWidth: .infinity)
+            .controlSize(.large)
         }
         .padding(Metrics.xl)
     }
