@@ -11,4 +11,9 @@ xcuserdata/
 # Scratch space for screenshots and throwaway artefacts
 .scratch/
 
+# Screenshots and build logs from .claude/skills/run-aigle/driver.sh
+.aigle-run/
+# Compiled helper binaries the driver caches (rebuilt from the .swift sources)
+.claude/skills/run-aigle/.bin/
+
 .DS_Store
