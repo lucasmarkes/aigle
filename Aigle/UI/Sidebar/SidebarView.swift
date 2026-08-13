@@ -114,46 +114,89 @@ struct SidebarView: View {
 
     /// Status bar: which library is open, plus the add menu that used to be two
     /// ＋ buttons floating in the section headers.
+    ///
+    /// The library name is a menu rather than a label. "Reveal in Finder" and
+    /// "Close Library" used to be reachable only by right-clicking a piece of
+    /// grey text, which is not an affordance anyone finds. Identity leads and
+    /// the add action trails, so the two controls read as what they are instead
+    /// of as one ＋ with a caption after it.
     @ViewBuilder
     private var footer: some View {
         HStack(spacing: Metrics.xs) {
-            Menu {
+            // Indicator on: it is the only thing marking the library name as a
+            // control rather than a caption. Drawn by the platform, because a
+            // chevron placed in the label by hand does not survive
+            // BorderlessButtonMenuStyle — it renders the label's text and
+            // leading image and drops the rest.
+            FooterMenu(help: "Library actions", showsIndicator: true) {
+                Button("Reveal Library in Finder") { revealLibrary() }
+                Button("Close Library") { controller.closeLibrary() }
+            } label: {
+                Label {
+                    Text(controller.libraryName)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                } icon: {
+                    Image(systemName: "books.vertical")
+                }
+                .font(.caption)
+            }
+
+            Spacer(minLength: Metrics.xs)
+
+            FooterMenu(help: "New collection or connected folder") {
                 Button("New Collection…") { newCollectionParent = .some(nil) }
                 Button("Connect Folder…") { bus.connectFolder() }
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 11, weight: .semibold))
-                    .frame(width: 20, height: 20)
-                    .contentShape(Rectangle())
+                    .frame(width: 14, height: 14)
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .foregroundStyle(.secondary)
-            .help("New collection or connected folder")
-
-            Divider()
-                .frame(height: 12)
-
-            Text(controller.libraryName)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Spacer(minLength: 0)
         }
-        .padding(.horizontal, Metrics.s)
-        .padding(.vertical, Metrics.xs)
+        .padding(.horizontal, Metrics.xs)
+        .padding(.vertical, 3)
         .background(.bar)
         .overlay(alignment: .top) { Divider() }
-        .contextMenu {
-            Button("Reveal Library in Finder") {
-                if let root = controller.snapshot?.layout.root {
-                    NSWorkspace.shared.activateFileViewerSelecting([root])
-                }
-            }
-            Button("Close Library") { controller.closeLibrary() }
+    }
+
+    private func revealLibrary() {
+        guard let root = controller.snapshot?.layout.root else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([root])
+    }
+}
+
+/// A borderless status-bar menu that highlights under the pointer.
+///
+/// Both footer controls go through this so they are visibly the same kind of
+/// control, and so each has a hit target bigger than its glyph.
+private struct FooterMenu<Label: View, Content: View>: View {
+    let help: String
+    var showsIndicator = false
+    @ViewBuilder var content: Content
+    @ViewBuilder var label: Label
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Menu {
+            content
+        } label: {
+            label
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, Metrics.xs)
+                .padding(.vertical, 3)
+                .background(
+                    cardShape(Metrics.radiusSmall)
+                        .fill(Color.primary.opacity(isHovering ? 0.08 : 0))
+                )
+                .contentShape(cardShape(Metrics.radiusSmall))
         }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(showsIndicator ? .visible : .hidden)
+        .fixedSize()
+        .onHover { isHovering = $0 }
+        .animation(Motion.quick, value: isHovering)
+        .help(help)
     }
 }
 

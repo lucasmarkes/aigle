@@ -19,12 +19,17 @@ struct InspectorView: View {
             } else {
                 // A full-size ContentUnavailableView here shouted at the user from
                 // a 280pt panel; the empty inspector should recede instead.
+                //
+                // Anchored to the top like the other two states rather than
+                // centred in the panel: centred, it slid up the moment you
+                // selected anything, so the panel appeared to twitch on every
+                // click.
                 Text("Select an item to see its details.")
                     .font(.subheadline)
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
-                    .padding(Metrics.xl)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity)
+                    .padding(Metrics.l)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -114,7 +119,9 @@ struct InspectorView: View {
             .buttonStyle(.bordered)
             .controlSize(.large)
         }
-        .padding(Metrics.xl)
+        // Same inset as the single-item view, so the thumbnail and the
+        // selection stack start on the same line.
+        .padding(Metrics.l)
     }
 }
 
