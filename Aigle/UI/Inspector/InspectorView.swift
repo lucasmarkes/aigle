@@ -17,11 +17,14 @@ struct InspectorView: View {
             } else if let item {
                 single(item)
             } else {
-                ContentUnavailableView(
-                    "Nothing selected",
-                    systemImage: "sidebar.trailing",
-                    description: Text("Select an item to see its details.")
-                )
+                // A full-size ContentUnavailableView here shouted at the user from
+                // a 280pt panel; the empty inspector should recede instead.
+                Text("Select an item to see its details.")
+                    .font(.subheadline)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+                    .padding(Metrics.xl)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -31,43 +34,39 @@ struct InspectorView: View {
 
     private func single(_ item: Item) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: Metrics.xl) {
                 ThumbnailView(item: item, size: .large, contentMode: .fit)
                     .frame(maxWidth: .infinity)
                     .frame(height: 180)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(.quaternary.opacity(0.3), in: cardShape())
+                    .clipShape(cardShape())
+                    .overlay { cardShape().strokeBorder(.hairline) }
 
-                HStack(spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                     Text(item.name)
                         .font(.headline)
                         .lineLimit(2)
                         .textSelection(.enabled)
-                    Spacer()
-                    Button {
-                        controller.toggleLike(ids: [item.id])
-                    } label: {
-                        Image(systemName: item.liked ? "heart.fill" : "heart")
-                            .foregroundStyle(item.liked ? .pink : .secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(item.liked ? "Unlike" : "Like")
-                    .disabled(item.connectedFolderID != nil)
+                    Spacer(minLength: Metrics.xs)
+                    LikeButton(item: item)
                 }
 
-                TagField(item: item)
+                InspectorSection("Tags") {
+                    TagField(item: item)
+                }
 
-                InspectorFacts(item: item)
+                InspectorSection("Details") {
+                    InspectorFacts(item: item)
+                }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Note")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                InspectorSection("Note") {
                     TextEditor(text: $annotationDraft)
                         .font(.callout)
-                        .frame(minHeight: 70)
+                        .frame(minHeight: 72)
                         .scrollContentBackground(.hidden)
-                        .padding(6)
-                        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
+                        .padding(Metrics.s)
+                        .background(.quaternary.opacity(0.4), in: cardShape(Metrics.radiusSmall))
+                        .overlay { cardShape(Metrics.radiusSmall).strokeBorder(.hairline) }
                         .disabled(item.connectedFolderID != nil)
                         .onChange(of: annotationDraft) { _, newValue in
                             guard annotationItemID == item.id else { return }
@@ -83,7 +82,7 @@ struct InspectorView: View {
                     .font(.callout)
                 }
             }
-            .padding(16)
+            .padding(Metrics.l)
         }
         .task(id: item.id) {
             annotationItemID = nil
@@ -93,21 +92,88 @@ struct InspectorView: View {
     }
 
     private var multipleSelection: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "square.stack.3d.up")
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(.tertiary)
+        VStack(spacing: Metrics.l) {
+            SelectionStack(items: controller.selectedItems.prefix(3).map { $0 })
             Text("\(controller.selectedItemIDs.count) items selected")
                 .font(.headline)
-            HStack {
+            VStack(spacing: Metrics.s) {
                 Button("Like All") { controller.toggleLike(ids: controller.selectedItemIDs) }
                 Button("Move to Trash", role: .destructive) {
                     controller.moveToTrash(ids: controller.selectedItemIDs)
                 }
             }
             .buttonStyle(.bordered)
+            .frame(maxWidth: .infinity)
         }
-        .padding(24)
+        .padding(Metrics.xl)
+    }
+}
+
+/// Fanned thumbnails of what's selected — more legible at a glance than a
+/// generic "stack of squares" symbol.
+private struct SelectionStack: View {
+    let items: [Item]
+
+    var body: some View {
+        ZStack {
+            ForEach(Array(items.enumerated().reversed()), id: \.element.id) { index, item in
+                ThumbnailView(item: item, size: .small, contentMode: .fill)
+                    .frame(width: 64, height: 64)
+                    .clipShape(cardShape(Metrics.radiusSmall))
+                    .overlay { cardShape(Metrics.radiusSmall).strokeBorder(.hairline) }
+                    .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+                    .rotationEffect(.degrees(Double(index - 1) * 7))
+                    .offset(x: CGFloat(index - 1) * 10)
+                    .zIndex(Double(items.count - index))
+            }
+        }
+        .frame(height: 76)
+    }
+}
+
+/// A like toggle that pops when it turns on.
+private struct LikeButton: View {
+    let item: Item
+
+    @Environment(LibraryController.self) private var controller
+    @Environment(AppSettings.self) private var settings
+
+    var body: some View {
+        Button {
+            controller.toggleLike(ids: [item.id])
+        } label: {
+            Image(systemName: item.liked ? "heart.fill" : "heart")
+                .font(.system(size: 14))
+                .foregroundStyle(item.liked ? .pink : .secondary)
+                .scaleEffect(item.liked ? 1.1 : 1)
+                .animation(settings.motionReduced ? nil : .bouncy(duration: 0.3), value: item.liked)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(item.liked ? "Unlike" : "Like")
+        .disabled(item.connectedFolderID != nil)
+    }
+}
+
+/// Label + content, so every inspector block shares one header treatment.
+private struct InspectorSection<Content: View>: View {
+    let title: LocalizedStringKey
+    @ViewBuilder var content: Content
+
+    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .kerning(0.4)
+            content
+        }
     }
 }
 
@@ -115,7 +181,7 @@ private struct InspectorFacts: View {
     let item: Item
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Metrics.xs) {
             fact("Kind", value: item.kind.displayName)
             if item.width > 0 && item.height > 0 {
                 fact("Dimensions", value: "\(item.width) × \(item.height)")
@@ -131,15 +197,16 @@ private struct InspectorFacts: View {
                 fact("Copy", value: String(localized: "Virtual copy"))
             }
         }
-        .font(.callout)
+        .font(.subheadline)
     }
 
     private func fact(_ label: LocalizedStringKey, value: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(label)
                 .foregroundStyle(.secondary)
-            Spacer()
+            Spacer(minLength: Metrics.s)
             Text(value)
+                .monospacedDigit()
                 .multilineTextAlignment(.trailing)
                 .textSelection(.enabled)
         }
@@ -169,13 +236,9 @@ struct TagField: View {
     @State private var draft = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Tags")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-
+        VStack(alignment: .leading, spacing: Metrics.s) {
             if !item.tags.isEmpty {
-                FlowLayout(spacing: 6) {
+                FlowLayout(spacing: Metrics.xs) {
                     ForEach(item.tags, id: \.self) { tag in
                         TagChip(tag: tag) {
                             controller.removeTag(tag, ids: [item.id])
@@ -190,7 +253,7 @@ struct TagField: View {
                 .disabled(item.connectedFolderID != nil)
 
             if !suggestions.isEmpty {
-                FlowLayout(spacing: 6) {
+                FlowLayout(spacing: Metrics.xs) {
                     ForEach(suggestions, id: \.self) { suggestion in
                         Button(suggestion) {
                             controller.addTags([suggestion], ids: [item.id])
@@ -198,7 +261,7 @@ struct TagField: View {
                         }
                         .buttonStyle(.plain)
                         .font(.caption)
-                        .padding(.horizontal, 7)
+                        .padding(.horizontal, Metrics.s)
                         .padding(.vertical, 3)
                         .background(.quaternary.opacity(0.5), in: Capsule())
                     }
@@ -229,7 +292,7 @@ struct TagChip: View {
     var onRemove: (() -> Void)?
 
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: Metrics.xs) {
             Text(tag)
             if let onRemove {
                 Button(action: onRemove) {
@@ -241,7 +304,7 @@ struct TagChip: View {
             }
         }
         .font(.caption)
-        .padding(.horizontal, 7)
+        .padding(.horizontal, Metrics.s)
         .padding(.vertical, 3)
         .background(.tint.opacity(0.18), in: Capsule())
     }

@@ -23,6 +23,11 @@ struct MainView: View {
         } detail: {
             ZStack {
                 GridView(namespace: detailNamespace)
+                    .searchable(
+                        text: $controller.searchText,
+                        placement: .toolbar,
+                        prompt: Text("Filter this view")
+                    )
                     .toolbar { toolbarContent }
                     .navigationTitle(titleText)
                     .navigationSubtitle(subtitleText)
@@ -44,7 +49,6 @@ struct MainView: View {
                     .inspectorColumnWidth(min: 240, ideal: 280, max: 380)
             }
         }
-        .searchable(text: $controller.searchText, placement: .toolbar, prompt: Text("Filter this view"))
         .sheet(isPresented: $bus.isSearchPresented) {
             SearchPalette()
         }
@@ -127,40 +131,33 @@ struct MainView: View {
 
     // MARK: - Toolbar
 
+    /// Sort and import travel together as view actions; the inspector toggle sits
+    /// on its own at the trailing edge, where macOS puts panel toggles.
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
-            Button {
-                bus.isSearchPresented = true
-            } label: {
-                Label("Search", systemImage: "magnifyingglass")
-            }
-            .help("Search everything (⌘K)")
-        }
-
-        ToolbarItem {
+        ToolbarItemGroup {
             Menu {
                 SortMenu()
             } label: {
                 Label("Sort", systemImage: "arrow.up.arrow.down")
             }
-        }
+            .help("Sort this view")
 
-        ToolbarItem {
             Button {
                 isImportingFiles = true
             } label: {
                 Label("Import", systemImage: "square.and.arrow.down")
             }
-            .help("Import files…")
+            .help("Import files… (⌘I)")
         }
 
-        ToolbarItem {
+        ToolbarItem(placement: .primaryAction) {
             Button {
                 showInspector.toggle()
             } label: {
                 Label("Inspector", systemImage: "sidebar.trailing")
             }
+            .help(showInspector ? "Hide details" : "Show details")
         }
     }
 }
@@ -215,22 +212,16 @@ struct RenameSheet: View {
     @State private var name: String = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Rename")
-                .font(.headline)
+        FormSheet(title: "Rename") {
             TextField("Name", text: $name)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 280)
                 .onSubmit(commit)
-            HStack {
-                Spacer()
-                Button("Cancel", role: .cancel) { dismiss() }
-                Button("Rename", action: commit)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
+        } actions: {
+            Button("Cancel", role: .cancel) { dismiss() }
+            Button("Rename", action: commit)
+                .keyboardShortcut(.defaultAction)
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
         }
-        .padding(20)
         .onAppear { name = item.name }
     }
 
@@ -249,13 +240,13 @@ private struct ImportToast: View {
         VStack {
             Spacer()
             Text(message)
-                .font(.system(size: 12, weight: .medium))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
+                .font(.callout.weight(.medium))
+                .padding(.horizontal, Metrics.m)
+                .padding(.vertical, Metrics.s)
                 .background(.regularMaterial, in: Capsule())
-                .overlay(Capsule().strokeBorder(.separator.opacity(0.5)))
+                .overlay(Capsule().strokeBorder(.hairline))
                 .shadow(color: .black.opacity(0.18), radius: 10, y: 3)
-                .padding(.bottom, 26)
+                .padding(.bottom, Metrics.xl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .allowsHitTesting(false)

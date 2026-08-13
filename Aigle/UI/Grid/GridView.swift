@@ -37,7 +37,7 @@ struct GridView: View {
         )
     }
 
-    private let horizontalInset: CGFloat = 16
+    private let horizontalInset: CGFloat = Metrics.gridInset
 
     var body: some View {
         GeometryReader { proxy in
@@ -166,9 +166,9 @@ struct GridView: View {
     @ViewBuilder
     private var dropHighlight: some View {
         if isDropTargeted {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            cardShape()
                 .strokeBorder(settings.selectionTint.color, lineWidth: 3)
-                .padding(6)
+                .padding(Metrics.xs)
                 .transition(.opacity)
                 .allowsHitTesting(false)
         }
@@ -452,13 +452,40 @@ private struct GridEmptyState: View {
     let selection: SidebarSelection
     let hasSearch: Bool
 
-    var body: some View {
-        ContentUnavailableView {
-            Label(title, systemImage: symbol)
-        } description: {
-            Text(message)
+    @Environment(CommandBus.self) private var bus
+
+    /// Only the "your library is empty" case gets a button — offering "Import"
+    /// from an empty Trash or a search with no matches would be noise.
+    private var offersImport: Bool {
+        if hasSearch { return false }
+        switch selection {
+        case .smart(.trash), .smart(.likes): return false
+        default: return true
         }
-        .allowsHitTesting(false)
+    }
+
+    var body: some View {
+        VStack(spacing: Metrics.m) {
+            Image(systemName: symbol)
+                .font(.system(size: 28, weight: .light))
+                .foregroundStyle(.tertiary)
+            VStack(spacing: Metrics.xs) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+            }
+            if offersImport {
+                Button("Import Files…") { bus.showImportPicker() }
+                    .controlSize(.regular)
+                    .padding(.top, Metrics.xs)
+            }
+        }
+        .padding(Metrics.xl)
+        .frame(maxWidth: 320)
     }
 
     private var title: LocalizedStringKey {
@@ -491,12 +518,20 @@ private struct GridEmptyState: View {
 }
 
 /// Bottom-right zoom slider, the mouse-friendly counterpart to pinch.
+///
+/// It fades out a couple of seconds after the last zoom change and comes back on
+/// hover, so a window full of images isn't permanently overlapped by a control
+/// you touch once a session.
 private struct ZoomSlider: View {
     @Environment(LibraryController.self) private var controller
+    @Environment(AppSettings.self) private var settings
+
+    @State private var isHovering = false
+    @State private var isAwake = true
 
     var body: some View {
         @Bindable var controller = controller
-        HStack(spacing: 8) {
+        HStack(spacing: Metrics.s) {
             Image(systemName: "photo")
                 .font(.system(size: 9))
                 .foregroundStyle(.secondary)
@@ -507,11 +542,23 @@ private struct ZoomSlider: View {
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, Metrics.m)
+        .padding(.vertical, Metrics.s)
         .background(.regularMaterial, in: Capsule())
-        .overlay { Capsule().strokeBorder(.separator.opacity(0.5)) }
-        .padding(12)
+        .overlay { Capsule().strokeBorder(.hairline) }
+        .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
+        .padding(Metrics.m)
+        .opacity(isAwake || isHovering ? 1 : 0)
+        .animation(Motion.standard(settings), value: isAwake)
+        .animation(Motion.standard(settings), value: isHovering)
+        .onHover { isHovering = $0 }
+        // Each zoom change cancels the previous countdown and starts a new one.
+        .task(id: controller.zoom) {
+            isAwake = true
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            isAwake = false
+        }
         .accessibilityLabel("Thumbnail size")
     }
 }

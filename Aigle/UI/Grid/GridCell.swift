@@ -39,8 +39,13 @@ struct GridCell: View {
         }
         .frame(width: size.width, height: size.height)
         .contentShape(shape)
-        .scaleEffect(isHovering && !isSelected ? 1.012 : 1)
-        .animation(settings.motionReduced ? nil : .snappy(duration: 0.16), value: isHovering)
+        .scaleEffect(isHovering && !isSelected ? 1.015 : 1)
+        .shadow(
+            color: .black.opacity(isHovering && !isSelected ? 0.22 : 0),
+            radius: isHovering ? 12 : 0,
+            y: isHovering ? 4 : 0
+        )
+        .animation(Motion.quick(settings), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
             if hovering { controller.hoveredItemID = item.id }
@@ -78,8 +83,8 @@ struct GridCell: View {
                 .foregroundStyle(.white)
                 .lineLimit(1)
                 .truncationMode(.middle)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 5)
+                .padding(.horizontal, Metrics.s)
+                .padding(.vertical, Metrics.xs)
                 .frame(maxWidth: size.width * 0.75, alignment: .leading)
                 .background(
                     LinearGradient(
@@ -113,13 +118,13 @@ struct GridCell: View {
     private var selectionRing: some View {
         let tint = settings.selectionTint.color
         shape
-            .strokeBorder(tint, lineWidth: isSelected ? 3 : 0)
+            .strokeBorder(tint, lineWidth: isSelected ? 2 : 0)
             .overlay {
                 if isFocused && !isSelected {
-                    shape.strokeBorder(tint.opacity(0.55), lineWidth: 2)
+                    shape.strokeBorder(tint.opacity(0.5), lineWidth: 1.5)
                 }
             }
-            .animation(settings.motionReduced ? nil : .snappy(duration: 0.14), value: isSelected)
+            .animation(Motion.quick(settings), value: isSelected)
     }
 }
 

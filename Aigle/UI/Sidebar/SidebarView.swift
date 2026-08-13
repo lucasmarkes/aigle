@@ -44,22 +44,13 @@ struct SidebarView: View {
                 }
             }
 
-            Section {
-                ForEach(controller.collections) { collection in
-                    CollectionRow(collection: collection, depth: 0)
-                }
-            } header: {
-                HStack {
-                    Text("Collections")
-                    Spacer()
-                    Button {
-                        newCollectionParent = .some(nil)
-                    } label: {
-                        Image(systemName: "plus")
+            // Section headers stay plain text; adding lives in the footer's ＋ menu
+            // so the headers can't drift out of alignment with the rows below them.
+            if !controller.collections.isEmpty {
+                Section("Collections") {
+                    ForEach(controller.collections) { collection in
+                        CollectionRow(collection: collection, depth: 0)
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .help("New collection")
                 }
                 .contextMenu {
                     Button("Sort Collections Alphabetically") {
@@ -75,29 +66,18 @@ struct SidebarView: View {
                 }
             }
 
-            Section {
-                ForEach(controller.connectedFolders) { folder in
-                    FolderRow(folder: folder)
-                }
-            } header: {
-                HStack {
-                    Text("Folders")
-                    Spacer()
-                    Button {
-                        bus.connectFolder()
-                    } label: {
-                        Image(systemName: "plus")
+            if !controller.connectedFolders.isEmpty {
+                Section("Folders") {
+                    ForEach(controller.connectedFolders) { folder in
+                        FolderRow(folder: folder)
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-                    .help("Connect a folder")
                 }
             }
 
             if !controller.allTags.isEmpty {
                 Section("Tags") {
                     ForEach(controller.allTags.prefix(40), id: \.self) { tag in
-                        Label(tag, systemImage: "tag")
+                        SidebarRow(title: tag, symbol: "tag", count: 0)
                             .tag(SidebarSelection.tag(tag))
                     }
                 }
@@ -128,21 +108,40 @@ struct SidebarView: View {
         )
     }
 
+    /// Status bar: which library is open, plus the add menu that used to be two
+    /// ＋ buttons floating in the section headers.
     @ViewBuilder
     private var footer: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "externaldrive")
-                .foregroundStyle(.tertiary)
+        HStack(spacing: Metrics.xs) {
+            Menu {
+                Button("New Collection…") { newCollectionParent = .some(nil) }
+                Button("Connect Folder…") { bus.connectFolder() }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .foregroundStyle(.secondary)
+            .help("New collection or connected folder")
+
+            Divider()
+                .frame(height: 12)
+
             Text(controller.libraryName)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            Spacer()
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.horizontal, Metrics.s)
+        .padding(.vertical, Metrics.xs)
         .background(.bar)
+        .overlay(alignment: .top) { Divider() }
         .contextMenu {
             Button("Reveal Library in Finder") {
                 if let root = controller.snapshot?.layout.root {
@@ -156,30 +155,59 @@ struct SidebarView: View {
 
 // MARK: - Rows
 
+/// The one row layout every sidebar entry uses.
+///
+/// SF Symbols have different intrinsic widths, so building each row out of a
+/// bare `Label` left every title starting at a slightly different x. Pinning the
+/// icon to a fixed box is what actually lines the sidebar up.
+private struct SidebarRow<Leading: View>: View {
+    let title: String
+    let symbol: String
+    let count: Int
+    /// Disclosure chevron or indent spacer, drawn before the icon.
+    @ViewBuilder var leading: Leading
+
+    var body: some View {
+        HStack(spacing: Metrics.xs) {
+            leading
+            Image(systemName: symbol)
+                .font(.system(size: 12))
+                .frame(width: 18, alignment: .center)
+                .foregroundStyle(.secondary)
+            Text(title)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: Metrics.s)
+            // An empty collection shows nothing rather than a grey zero — a
+            // column of zeros reads as clutter, not information.
+            Text(count > 0 ? count.formatted(.number) : "")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.tertiary)
+                .frame(width: Metrics.sidebarCountWidth, alignment: .trailing)
+        }
+    }
+}
+
+extension SidebarRow where Leading == EmptyView {
+    init(title: String, symbol: String, count: Int) {
+        self.init(title: title, symbol: symbol, count: count) { EmptyView() }
+    }
+}
+
 private struct SmartRow: View {
     let section: SmartSection
     let count: Int
 
     var body: some View {
-        Label {
-            HStack {
-                Text(title)
-                Spacer()
-                Text(count, format: .number)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.tertiary)
-            }
-        } icon: {
-            Image(systemName: symbol)
-        }
+        SidebarRow(title: title, symbol: symbol, count: count)
     }
 
-    private var title: LocalizedStringKey {
+    private var title: String {
         switch section {
-        case .all: "All Items"
-        case .inbox: "Inbox"
-        case .likes: "Likes"
-        case .trash: "Trash"
+        case .all: String(localized: "All Items")
+        case .inbox: String(localized: "Inbox")
+        case .likes: String(localized: "Likes")
+        case .trash: String(localized: "Trash")
         }
     }
 
@@ -216,28 +244,29 @@ private struct CollectionRow: View {
     }
 
     private var row: some View {
-        HStack(spacing: 4) {
-            if collection.children.isEmpty {
-                Color.clear.frame(width: 12)
-            } else {
-                Button {
-                    toggleExpansion()
-                } label: {
+        SidebarRow(
+            title: collection.name,
+            symbol: isExpanded ? "folder.fill" : "folder",
+            count: count
+        ) {
+            // The chevron box is always reserved, so childless collections line
+            // up with their siblings instead of shifting left.
+            Group {
+                if collection.children.isEmpty {
+                    Color.clear
+                } else {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 9, weight: .semibold))
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 12)
+                        .foregroundStyle(.tertiary)
+                        .contentShape(Rectangle())
+                        .onTapGesture { toggleExpansion() }
                 }
-                .buttonStyle(.plain)
             }
-            Label(collection.name, systemImage: isExpanded ? "folder.fill" : "folder")
-            Spacer()
-            Text(count, format: .number)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.tertiary)
+            .frame(width: 10)
+            .animation(Motion.quick, value: isExpanded)
         }
-        .padding(.leading, CGFloat(depth) * 12)
+        .padding(.leading, CGFloat(depth) * 14)
         .tag(SidebarSelection.collection(collection.id))
         .background(isTargeted ? Color.accentColor.opacity(0.18) : .clear)
         .contextMenu {
@@ -306,17 +335,11 @@ private struct FolderRow: View {
     @Environment(LibraryController.self) private var controller
 
     var body: some View {
-        Label {
-            HStack {
-                Text(folder.name)
-                Spacer()
-                Text(controller.connectedItems[folder.id]?.count ?? 0, format: .number)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.tertiary)
-            }
-        } icon: {
-            Image(systemName: "folder.badge.gearshape")
-        }
+        SidebarRow(
+            title: folder.name,
+            symbol: "folder.badge.gearshape",
+            count: controller.connectedItems[folder.id]?.count ?? 0
+        )
         .tag(SidebarSelection.connectedFolder(folder.id))
         .help(folder.path)
         .contextMenu {
@@ -340,22 +363,16 @@ private struct NewCollectionSheet: View {
     @State private var name = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(parent == nil ? "New Collection" : "New Subcollection")
-                .font(.headline)
+        FormSheet(title: parent == nil ? "New Collection" : "New Subcollection") {
             TextField("Name", text: $name)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 260)
                 .onSubmit(commit)
-            HStack {
-                Spacer()
-                Button("Cancel", role: .cancel) { dismiss() }
-                Button("Create", action: commit)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
+        } actions: {
+            Button("Cancel", role: .cancel) { dismiss() }
+            Button("Create", action: commit)
+                .keyboardShortcut(.defaultAction)
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
         }
-        .padding(20)
     }
 
     private func commit() {
@@ -374,21 +391,16 @@ private struct RenameCollectionSheet: View {
     @State private var name = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Rename Collection")
-                .font(.headline)
+        FormSheet(title: "Rename Collection") {
             TextField("Name", text: $name)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 260)
                 .onSubmit(commit)
-            HStack {
-                Spacer()
-                Button("Cancel", role: .cancel) { dismiss() }
-                Button("Rename", action: commit)
-                    .keyboardShortcut(.defaultAction)
-            }
+        } actions: {
+            Button("Cancel", role: .cancel) { dismiss() }
+            Button("Rename", action: commit)
+                .keyboardShortcut(.defaultAction)
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
         }
-        .padding(20)
         .onAppear { name = collection.name }
     }
 
