@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Aigle",
+  "version": "1.0",
+  "description": "Save images, videos and pages to your Aigle library.",
+  "default_locale": "en",
+  "permissions": ["contextMenus", "activeTab", "nativeMessaging"],
+  "background": {
+    "service_worker": "safari-background.js",
+    "persistent": false
+  },
+  "action": {
+    "default_title": "Save to Aigle"
+  }
+}

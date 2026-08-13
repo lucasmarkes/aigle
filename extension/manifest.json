@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Save to Aigle",
+  "version": "1.0.0",
+  "description": "Right-click any image, video, link or page and save it straight into your Aigle library.",
+  "permissions": ["contextMenus", "storage", "notifications"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html",
+  "action": {
+    "default_title": "Save this page to Aigle"
+  },
+  "icons": {
+    "128": "icon128.png"
+  }
+}

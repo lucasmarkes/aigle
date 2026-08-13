@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Save to Aigle — Options</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        margin: 0;
+        padding: 28px;
+        max-width: 520px;
+      }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      p.lede { margin: 0 0 22px; opacity: 0.7; }
+      label { display: block; font-weight: 600; margin-bottom: 6px; }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        border-radius: 6px;
+        border: 1px solid rgba(128, 128, 128, 0.45);
+        background: transparent;
+        color: inherit;
+        font: inherit;
+      }
+      .field { margin-bottom: 18px; }
+      button {
+        font: inherit;
+        padding: 7px 16px;
+        border-radius: 6px;
+        border: 0;
+        background: #2a7bec;
+        color: #fff;
+        cursor: pointer;
+      }
+      #status { margin-left: 12px; opacity: 0.75; }
+      ol { padding-left: 20px; opacity: 0.75; }
+    </style>
+  </head>
+  <body>
+    <h1>Save to Aigle</h1>
+    <p class="lede">This extension talks only to the Aigle app running on this Mac.</p>
+
+    <div class="field">
+      <label for="token">Token</label>
+      <input id="token" type="text" placeholder="Paste the token from Aigle → Settings → Extensions" spellcheck="false" />
+    </div>
+
+    <div class="field">
+      <label for="port">Port</label>
+      <input id="port" type="number" min="1024" max="65535" value="41417" />
+    </div>
+
+    <button id="save">Save</button>
+    <span id="status"></span>
+
+    <h2 style="font-size: 15px; margin-top: 28px">Setup</h2>
+    <ol>
+      <li>Open Aigle and go to Settings → Extensions.</li>
+      <li>Turn on “Allow the browser extension to connect”.</li>
+      <li>Copy the token and paste it above.</li>
+    </ol>
+
+    <script src="options.js"></script>
+  </body>
+</html>
